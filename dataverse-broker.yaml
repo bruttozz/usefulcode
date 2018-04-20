@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: dataverse-broker
+objects:
+
+- apiVersion: servicecatalog.k8s.io/v1beta1
+  kind: ClusterServiceBroker
+  metadata:
+    name: dataverse-broker
+  spec:
+    url: http://dataverse-broker.bdc.svc.cluster.local
+
+- kind: ServiceAccount
+  apiVersion: v1
+  metadata:
+    name: dataverse-broker
+
+- kind: Service
+  apiVersion: v1
+  metadata:
+    name: dataverse-broker
+    labels:
+      app: dataverse-broker
+  spec:
+    selector:
+      app: dataverse-broker
+    ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+- kind: Deployment
+  apiVersion: extensions/v1beta1
+  metadata:
+    name: dataverse-broker
+    labels:
+      app: dataverse-broker
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: dataverse-broker
+    template:
+      metadata:
+        labels:
+          app: dataverse-broker
+      spec:
+        containers:
+        - name: service-dataverse-broker
+          image: ${IMAGE}
+          imagePullPolicy: IfNotPresent
+          command:
+          - /opt/dataverse-broker/dataverse-broker
+          args:
+          - --port
+          - "8080"
+          - -v
+          - "4"
+          - --logtostderr
+          ports:
+          - containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            failureThreshold: 1
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 2
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 2
+          
+
+parameters:
+- description: Dataverse service broker
+  displayName: dataverse-broker
+  name: IMAGE
+  required: true
+  value: quay.io/dataverse-broker/dataverse-broker:latest
